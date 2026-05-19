@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kie Claude Hub</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --ivory: #FAF7F2;
+      --ivory-deep: #F3EFE7;
+      --gold: #C8922A;
+      --gold-light: #E4AE48;
+      --gold-pale: #F5E8C8;
+      --espresso: #2C1A0E;
+      --espresso-mid: #5A3E28;
+      --espresso-soft: #8A6A4E;
+      --white: #FFFFFF;
+      --card-shadow: 0 2px 24px rgba(44,26,14,0.07), 0 1px 4px rgba(44,26,14,0.04);
+      --card-shadow-hover: 0 8px 40px rgba(44,26,14,0.13), 0 2px 8px rgba(44,26,14,0.06);
+    }
+
+    html {
+      background: var(--ivory);
+    }
+
+    body {
+      font-family: 'DM Mono', monospace;
+      background: var(--ivory);
+      color: var(--espresso);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 56px 20px 80px;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Paper texture via SVG noise */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23noise)' opacity='0.035'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Warm glow blob */
+    body::after {
+      content: '';
+      position: fixed;
+      top: -120px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(ellipse at center, rgba(228,174,72,0.12) 0%, rgba(200,146,42,0.06) 40%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+    }
+
+    /* ─── Avatar ─── */
+    .avatar-wrap {
+      position: relative;
+      margin-bottom: 28px;
+      animation: float 5s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-10px); }
+    }
+
+    .avatar-ring {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      padding: 3px;
+      background: linear-gradient(135deg, var(--gold-light), var(--gold), #A06B1A);
+      box-shadow: 0 0 0 6px rgba(200,146,42,0.12), 0 8px 32px rgba(200,146,42,0.25);
+    }
+
+    .avatar-inner {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      overflow: hidden;
+      background: var(--gold-pale);
+      border: 3px solid var(--ivory);
+    }
+
+    .avatar-inner img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center top;
+    }
+
+    /* Sparkle dots */
+    .sparkle {
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      background: var(--gold-light);
+      border-radius: 50%;
+      animation: sparkle-pulse 2.5s ease-in-out infinite;
+    }
+
+    .sparkle:nth-child(2) {
+      top: 8px;
+      right: 4px;
+      width: 5px;
+      height: 5px;
+      animation-delay: 0.8s;
+    }
+
+    .sparkle:nth-child(3) {
+      bottom: 14px;
+      left: 0px;
+      width: 4px;
+      height: 4px;
+      animation-delay: 1.6s;
+    }
+
+    .sparkle:nth-child(4) {
+      top: 50%;
+      right: -8px;
+      width: 3px;
+      height: 3px;
+      animation-delay: 0.4s;
+    }
+
+    @keyframes sparkle-pulse {
+      0%, 100% { opacity: 0.2; transform: scale(0.8); }
+      50% { opacity: 1; transform: scale(1.2); }
+    }
+
+    /* ─── Identity ─── */
+    .identity {
+      text-align: center;
+      margin-bottom: 10px;
+      opacity: 0;
+      animation: fade-up 0.7s ease forwards;
+      animation-delay: 0.2s;
+    }
+
+    .handle {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      font-weight: 400;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 8px;
+    }
+
+    .name {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(36px, 8vw, 48px);
+      font-weight: 300;
+      line-height: 1.05;
+      color: var(--espresso);
+      letter-spacing: -0.01em;
+    }
+
+    .name em {
+      font-style: italic;
+      font-weight: 400;
+      color: var(--gold);
+    }
+
+    /* ─── Bio ─── */
+    .bio {
+      text-align: center;
+      margin-top: 14px;
+      margin-bottom: 10px;
+      opacity: 0;
+      animation: fade-up 0.7s ease forwards;
+      animation-delay: 0.35s;
+    }
+
+    .bio p {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 17px;
+      font-style: italic;
+      font-weight: 300;
+      color: var(--espresso-soft);
+      line-height: 1.6;
+      max-width: 300px;
+    }
+
+    /* ─── Tags ─── */
+    .tags {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-top: 16px;
+      margin-bottom: 40px;
+      opacity: 0;
+      animation: fade-up 0.7s ease forwards;
+      animation-delay: 0.45s;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 12px;
+      border-radius: 100px;
+      font-size: 10.5px;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      border: 1px solid;
+    }
+
+    .tag-gold {
+      background: var(--gold-pale);
+      border-color: rgba(200,146,42,0.3);
+      color: var(--espresso-mid);
+    }
+
+    .tag-outline {
+      background: transparent;
+      border-color: rgba(44,26,14,0.15);
+      color: var(--espresso-soft);
+    }
+
+    /* ─── Section label ─── */
+    .section-label {
+      align-self: flex-start;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      opacity: 0;
+      animation: fade-up 0.7s ease forwards;
+      animation-delay: 0.55s;
+    }
+
+    .section-label span {
+      font-size: 9.5px;
+      font-weight: 500;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--espresso-soft);
+      white-space: nowrap;
+    }
+
+    .section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(to right, rgba(44,26,14,0.12), transparent);
+    }
+
+    /* ─── Link cards ─── */
+    .links {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .link-card {
+      width: 100%;
+      background: var(--white);
+      border-radius: 16px;
+      padding: 22px 24px;
+      box-shadow: var(--card-shadow);
+      border: 1px solid rgba(200,146,42,0.1);
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      align-items: flex-start;
+      gap: 18px;
+      transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+      position: relative;
+      overflow: hidden;
+      opacity: 0;
+      animation: fade-up 0.7s ease forwards;
+    }
+
+    .link-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 3px;
+      height: 100%;
+      background: linear-gradient(to bottom, var(--gold-light), var(--gold));
+      border-radius: 3px 0 0 3px;
+    }
+
+    .link-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(200,146,42,0.04) 0%, transparent 60%);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.25s ease;
+    }
+
+    .link-card:hover {
+      transform: translateY(-3px);
+      box-shadow: var(--card-shadow-hover);
+      border-color: rgba(200,146,42,0.25);
+    }
+
+    .link-card:hover::after {
+      opacity: 1;
+    }
+
+    .card-number {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      color: var(--gold);
+      background: var(--gold-pale);
+      border-radius: 8px;
+      padding: 5px 8px;
+      line-height: 1;
+      flex-shrink: 0;
+      margin-top: 3px;
+      font-style: normal;
+    }
+
+    .card-body {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .card-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 7px;
+    }
+
+    .card-date {
+      font-size: 9.5px;
+      font-weight: 400;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--espresso-soft);
+    }
+
+    .card-tag {
+      font-size: 8.5px;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--gold);
+      background: var(--gold-pale);
+      padding: 2px 7px;
+      border-radius: 100px;
+    }
+
+    .card-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--espresso);
+      line-height: 1.25;
+      margin-bottom: 9px;
+      letter-spacing: -0.01em;
+    }
+
+    .card-desc {
+      font-size: 11px;
+      font-weight: 300;
+      color: var(--espresso-soft);
+      line-height: 1.75;
+      margin-bottom: 14px;
+    }
+
+    .card-desc code {
+      background: var(--ivory-deep);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 10px;
+      color: var(--espresso-mid);
+      font-family: 'DM Mono', monospace;
+    }
+
+    .card-footer {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--gold);
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 0;
+      font-family: 'DM Mono', monospace;
+      margin-top: 14px;
+    }
+
+    .card-footer svg {
+      transition: transform 0.2s ease;
+    }
+
+    .link-card:hover .card-footer svg {
+      transform: translateX(4px);
+    }
+
+    /* ─── Requirements list ─── */
+    .req-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 16px;
+      padding: 14px 16px;
+      background: var(--ivory);
+      border-radius: 10px;
+    }
+
+    .req-item {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      font-size: 10.5px;
+      font-weight: 300;
+      color: var(--espresso-mid);
+      line-height: 1.6;
+    }
+
+    .req-item code {
+      background: var(--ivory-deep);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 9.5px;
+      color: var(--espresso-mid);
+      font-family: 'DM Mono', monospace;
+    }
+
+    .req-icon {
+      flex-shrink: 0;
+      font-size: 11px;
+      line-height: 1.6;
+    }
+
+    /* ─── Status display (mimicking the statusline) ─── */
+    .statusline-preview {
+      margin-top: 16px;
+      width: 100%;
+      background: var(--espresso);
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: 10.5px;
+      font-weight: 400;
+      color: rgba(245,232,200,0.85);
+      letter-spacing: 0.04em;
+      line-height: 1.5;
+      overflow: hidden;
+    }
+
+    .statusline-preview .sl-label {
+      color: rgba(200,146,42,0.6);
+      font-size: 9px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .statusline-preview .sl-line {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      color: #E4C98A;
+    }
+
+    .sl-sep {
+      color: rgba(200,146,42,0.3);
+    }
+
+    .sl-bar {
+      color: var(--gold-light);
+      letter-spacing: -0.02em;
+    }
+
+    /* ─── Footer ─── */
+    .footer {
+      margin-top: 56px;
+      text-align: center;
+      opacity: 0;
+      animation: fade-up 0.7s ease forwards;
+      animation-delay: 0.95s;
+    }
+
+    .footer p {
+      font-size: 10px;
+      font-weight: 400;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(44,26,14,0.3);
+    }
+
+    .footer .dot {
+      display: inline-block;
+      width: 3px;
+      height: 3px;
+      background: var(--gold);
+      border-radius: 50%;
+      margin: 0 8px;
+      vertical-align: middle;
+      opacity: 0.5;
+    }
+
+    /* ─── Animations ─── */
+    @keyframes fade-up {
+      from {
+        opacity: 0;
+        transform: translateY(16px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Stagger link cards */
+    .link-card:nth-child(1) { animation-delay: 0.65s; }
+    .link-card:nth-child(2) { animation-delay: 0.78s; }
+    .link-card:nth-child(3) { animation-delay: 0.91s; }
+
+    /* ─── Responsive ─── */
+    @media (max-width: 480px) {
+      body {
+        padding: 40px 16px 60px;
+      }
+
+      .card-meta {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+      }
+
+      .statusline-preview .sl-line {
+        font-size: 9.5px;
+        gap: 6px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <!-- Avatar -->
+    <div class="avatar-wrap">
+      <div class="sparkle"></div>
+      <div class="sparkle"></div>
+      <div class="sparkle"></div>
+      <div class="sparkle"></div>
+      <div class="avatar-ring">
+        <div class="avatar-inner">
+          <img src="../image2try.png" alt="Kie mascot">
+        </div>
+      </div>
+    </div>
+
+    <!-- Identity -->
+    <div class="identity">
+      <div class="handle">@Kie_claude_hub</div>
+      <h1 class="name">Kie's <em>Claude</em> Hub</h1>
+    </div>
+
+    <!-- Bio -->
+    <div class="bio">
+      <p>HR professional in Singapore, learning Claude Code one lesson at a time.</p>
+    </div>
+
+    <!-- Tags -->
+    <div class="tags">
+      <span class="tag tag-gold">🇸🇬 Singapore</span>
+      <span class="tag tag-outline">HR Professional</span>
+      <span class="tag tag-gold">⚡ Learning Claude Code</span>
+    </div>
+
+    <!-- Section label -->
+    <div class="section-label">
+      <span>Lessons learned</span>
+    </div>
+
+    <!-- Links -->
+    <div class="links">
+
+      <a class="link-card" href="lesson1.html">
+        <span class="card-number">01</span>
+        <div class="card-body">
+          <div class="card-meta">
+            <span class="card-date">12 May 2026</span>
+            <span class="card-tag">Claude Code</span>
+          </div>
+          <h2 class="card-title">Build a Status Line in Claude</h2>
+
+          <!-- Statusline preview -->
+          <div class="statusline-preview">
+            <div class="sl-label">Result — statusline output</div>
+            <div class="sl-line">
+              <span>📁 Diana&nbsp;Proj/Kie</span>
+              <span class="sl-sep">·</span>
+              <span>🤖 Opus&nbsp;4.7</span>
+              <span class="sl-sep">·</span>
+              <span>⚡ normal</span>
+              <span class="sl-sep">·</span>
+              <span>🌿 main</span>
+              <span class="sl-sep">·</span>
+              <span>📊 <span class="sl-bar">████░░░░░░</span> 40%</span>
+            </div>
+          </div>
+
+          <div class="card-footer">
+            Read lesson
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M2 6h8M7 3l3 3-3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+      </a>
+
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <p>
+        Built with curiosity
+        <span class="dot"></span>
+        Powered by Claude Code
+        <span class="dot"></span>
+        2026
+      </p>
+    </footer>
+
+  </div>
+</body>
+</html>

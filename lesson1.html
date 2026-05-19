@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 01 — Build a Status Line in Claude</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --ivory: #FAF7F2;
+      --ivory-deep: #F3EFE7;
+      --gold: #C8922A;
+      --gold-light: #E4AE48;
+      --gold-pale: #F5E8C8;
+      --espresso: #2C1A0E;
+      --espresso-mid: #5A3E28;
+      --espresso-soft: #8A6A4E;
+      --white: #FFFFFF;
+    }
+
+    html { background: var(--ivory); }
+
+    body {
+      font-family: 'DM Mono', monospace;
+      background: var(--ivory);
+      color: var(--espresso);
+      min-height: 100vh;
+      padding: 0 20px 80px;
+    }
+
+    /* Paper texture */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23noise)' opacity='0.035'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .page {
+      position: relative;
+      z-index: 1;
+      max-width: 620px;
+      margin: 0 auto;
+    }
+
+    /* ─── Top nav ─── */
+    .topnav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 28px 0 40px;
+      border-bottom: 1px solid rgba(44,26,14,0.08);
+      margin-bottom: 48px;
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--espresso-soft);
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+
+    .back-link:hover { color: var(--gold); }
+
+    .back-link svg { transition: transform 0.2s ease; }
+    .back-link:hover svg { transform: translateX(-3px); }
+
+    .nav-label {
+      font-size: 9.5px;
+      font-weight: 400;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: rgba(44,26,14,0.3);
+    }
+
+    /* ─── Lesson header ─── */
+    .lesson-header {
+      margin-bottom: 40px;
+      opacity: 0;
+      animation: fade-up 0.6s ease forwards;
+      animation-delay: 0.1s;
+    }
+
+    .lesson-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .lesson-num {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      color: var(--gold);
+      background: var(--gold-pale);
+      padding: 4px 10px;
+      border-radius: 100px;
+    }
+
+    .lesson-date {
+      font-size: 10px;
+      font-weight: 400;
+      letter-spacing: 0.1em;
+      color: var(--espresso-soft);
+    }
+
+    .lesson-tag {
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--espresso-soft);
+      border: 1px solid rgba(44,26,14,0.15);
+      padding: 3px 9px;
+      border-radius: 100px;
+    }
+
+    .lesson-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(32px, 7vw, 46px);
+      font-weight: 300;
+      line-height: 1.1;
+      color: var(--espresso);
+      letter-spacing: -0.01em;
+      margin-bottom: 6px;
+    }
+
+    .lesson-title em {
+      font-style: italic;
+      color: var(--gold);
+    }
+
+    /* ─── Statusline preview ─── */
+    .statusline-preview {
+      background: var(--espresso);
+      border-radius: 12px;
+      padding: 14px 18px;
+      font-size: 11px;
+      font-weight: 400;
+      color: rgba(245,232,200,0.85);
+      letter-spacing: 0.04em;
+      line-height: 1.5;
+      margin-bottom: 40px;
+      opacity: 0;
+      animation: fade-up 0.6s ease forwards;
+      animation-delay: 0.2s;
+    }
+
+    .sl-label {
+      color: rgba(200,146,42,0.55);
+      font-size: 9px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .sl-line {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      color: #E4C98A;
+    }
+
+    .sl-sep { color: rgba(200,146,42,0.3); }
+    .sl-bar { color: #E4AE48; letter-spacing: -0.02em; }
+
+    /* ─── Section divider ─── */
+    .section-divider {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    .section-divider span {
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--espresso-soft);
+      white-space: nowrap;
+    }
+
+    .section-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(to right, rgba(44,26,14,0.1), transparent);
+    }
+
+    /* ─── Key summary ─── */
+    .key-summary {
+      background: var(--white);
+      border-radius: 14px;
+      padding: 22px 24px;
+      margin-bottom: 40px;
+      box-shadow: 0 2px 20px rgba(44,26,14,0.06);
+      border: 1px solid rgba(200,146,42,0.1);
+      opacity: 0;
+      animation: fade-up 0.6s ease forwards;
+      animation-delay: 0.25s;
+    }
+
+    .key-summary p {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 19px;
+      font-weight: 300;
+      color: var(--espresso);
+      line-height: 1.65;
+    }
+
+    .key-summary p code {
+      background: var(--ivory-deep);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 400;
+      color: var(--espresso-mid);
+    }
+
+    /* ─── Insight box ─── */
+    .insight-box {
+      background: linear-gradient(135deg, rgba(200,146,42,0.07), rgba(200,146,42,0.02));
+      border: 1px solid rgba(200,146,42,0.2);
+      border-left: 3px solid var(--gold);
+      border-radius: 12px;
+      padding: 18px 20px;
+      margin-bottom: 40px;
+      opacity: 0;
+      animation: fade-up 0.6s ease forwards;
+      animation-delay: 0.3s;
+    }
+
+    .insight-label {
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 10px;
+    }
+
+    .insight-box p {
+      font-size: 11.5px;
+      font-weight: 300;
+      color: var(--espresso-mid);
+      line-height: 1.8;
+      margin-bottom: 14px;
+    }
+
+    .insight-box p code {
+      background: rgba(200,146,42,0.12);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 10px;
+      color: var(--espresso-mid);
+      font-family: 'DM Mono', monospace;
+    }
+
+    /* ─── Requirements ─── */
+    .req-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 16px 18px;
+      background: var(--ivory-deep);
+      border-radius: 12px;
+      margin-bottom: 40px;
+      opacity: 0;
+      animation: fade-up 0.6s ease forwards;
+      animation-delay: 0.35s;
+    }
+
+    .req-item {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      font-size: 11px;
+      font-weight: 300;
+      color: var(--espresso-mid);
+      line-height: 1.7;
+    }
+
+    .req-icon { flex-shrink: 0; font-size: 12px; }
+
+    .req-item code {
+      background: rgba(44,26,14,0.07);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 10px;
+      color: var(--espresso-mid);
+      font-family: 'DM Mono', monospace;
+    }
+
+    /* ─── Steps ─── */
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .step {
+      display: flex;
+      gap: 18px;
+      padding-bottom: 32px;
+      position: relative;
+      opacity: 0;
+      animation: fade-up 0.6s ease forwards;
+    }
+
+    .step:nth-child(1) { animation-delay: 0.4s; }
+    .step:nth-child(2) { animation-delay: 0.5s; }
+    .step:nth-child(3) { animation-delay: 0.6s; }
+
+    /* Connecting line */
+    .step:not(:last-child)::before {
+      content: '';
+      position: absolute;
+      left: 13px;
+      top: 36px;
+      bottom: 0;
+      width: 1px;
+      background: linear-gradient(to bottom, rgba(200,146,42,0.25), transparent);
+    }
+
+    .step-num {
+      flex-shrink: 0;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--gold-pale);
+      border: 1.5px solid rgba(200,146,42,0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--gold);
+      margin-top: 2px;
+    }
+
+    .step-body { flex: 1; min-width: 0; }
+
+    .step-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--espresso);
+      line-height: 1.2;
+      margin-bottom: 10px;
+      letter-spacing: -0.01em;
+    }
+
+    .step-desc {
+      font-size: 11px;
+      font-weight: 300;
+      color: var(--espresso-soft);
+      line-height: 1.85;
+      margin-bottom: 12px;
+    }
+
+    .step-desc code {
+      background: var(--ivory-deep);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 10px;
+      color: var(--espresso-mid);
+      font-family: 'DM Mono', monospace;
+    }
+
+    .step-desc:last-child { margin-bottom: 0; }
+
+    /* ─── Code blocks ─── */
+    .code-block {
+      background: var(--espresso);
+      border-radius: 10px;
+      padding: 16px 18px;
+      font-size: 10px;
+      line-height: 1.9;
+      color: #C8D8A8;
+      overflow-x: auto;
+      white-space: pre;
+      font-family: 'DM Mono', monospace;
+      margin-bottom: 12px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(200,146,42,0.2) transparent;
+    }
+
+    .code-block:last-child { margin-bottom: 0; }
+
+    .code-block .cm { color: rgba(200,146,42,0.45); }
+    .code-block .cv { color: #E4C98A; }
+    .code-block .cs { color: #A8D8C8; }
+    .code-block .ck { color: #D4A8C8; }
+
+    /* ─── Done banner ─── */
+    .done-banner {
+      margin-top: 48px;
+      background: var(--white);
+      border-radius: 14px;
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      box-shadow: 0 2px 20px rgba(44,26,14,0.06);
+      border: 1px solid rgba(200,146,42,0.15);
+      opacity: 0;
+      animation: fade-up 0.6s ease forwards;
+      animation-delay: 0.7s;
+    }
+
+    .done-icon {
+      flex-shrink: 0;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--gold-pale);
+      border: 1.5px solid rgba(200,146,42,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+
+    .done-text p:first-child {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--espresso);
+      letter-spacing: 0.04em;
+      margin-bottom: 3px;
+    }
+
+    .done-text p:last-child {
+      font-size: 10px;
+      font-weight: 300;
+      color: var(--espresso-soft);
+      line-height: 1.6;
+    }
+
+    .done-text p:last-child code {
+      background: var(--ivory-deep);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 9px;
+      color: var(--espresso-mid);
+      font-family: 'DM Mono', monospace;
+    }
+
+    /* ─── Back to hub ─── */
+    .back-footer {
+      margin-top: 56px;
+      text-align: center;
+      opacity: 0;
+      animation: fade-up 0.6s ease forwards;
+      animation-delay: 0.8s;
+    }
+
+    .back-footer a {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--espresso-soft);
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+
+    .back-footer a:hover { color: var(--gold); }
+
+    /* ─── Animations ─── */
+    @keyframes fade-up {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ─── Responsive ─── */
+    @media (max-width: 480px) {
+      body { padding: 0 16px 60px; }
+      .code-block { font-size: 9px; padding: 12px 14px; }
+      .lesson-title { font-size: 30px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <!-- Top nav -->
+    <nav class="topnav">
+      <a class="back-link" href="index.html">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path d="M10 6H2M5 3L2 6l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Back to hub
+      </a>
+      <span class="nav-label">Kie_claude_hub</span>
+    </nav>
+
+    <!-- Lesson header -->
+    <div class="lesson-header">
+      <div class="lesson-meta">
+        <span class="lesson-num">Lesson 01</span>
+        <span class="lesson-date">12 May 2026</span>
+        <span class="lesson-tag">Claude Code</span>
+      </div>
+      <h1 class="lesson-title">Build a <em>Status Line</em><br>in Claude Code</h1>
+    </div>
+
+    <!-- Statusline preview -->
+    <div class="statusline-preview">
+      <div class="sl-label">Result — live statusline output</div>
+      <div class="sl-line">
+        <span>📁 Diana&nbsp;Proj/Kie</span>
+        <span class="sl-sep">·</span>
+        <span>🤖 Opus&nbsp;4.7</span>
+        <span class="sl-sep">·</span>
+        <span>⚡ normal</span>
+        <span class="sl-sep">·</span>
+        <span>🌿 main</span>
+        <span class="sl-sep">·</span>
+        <span>📊 <span class="sl-bar">████░░░░░░</span> 40%</span>
+      </div>
+    </div>
+
+    <!-- Key summary -->
+    <div class="section-divider"><span>Key summary</span></div>
+    <div class="key-summary">
+      <p>A fully live statusline — all fields read from the JSON Claude Code pipes via <code>stdin</code> on every 5-second refresh. No env vars, no file reads, no stale data.</p>
+    </div>
+
+    <!-- Key insight -->
+    <div class="section-divider"><span>Key insight</span></div>
+    <div class="insight-box">
+      <div class="insight-label">💡 How it works</div>
+      <p>Claude Code pipes a live JSON object via <code>stdin</code> to the statusline command on every refresh. Reading from stdin means folder, model, and context are always real-time session data — no polling, no file reads.</p>
+      <div class="code-block" style="font-size:9.5px;">{
+  <span class="ck">"workspace"</span>: { <span class="ck">"current_dir"</span>: <span class="cs">"/path/to/cwd"</span> },
+  <span class="ck">"model"</span>:     { <span class="ck">"display_name"</span>: <span class="cs">"Opus 4.7"</span> },
+  <span class="ck">"context_window"</span>: { <span class="ck">"used_percentage"</span>: 40 }
+}</div>
+    </div>
+
+    <!-- Requirements -->
+    <div class="section-divider"><span>What it shows</span></div>
+    <div class="req-list">
+      <div class="req-item"><span class="req-icon">📁</span><span>Folder — <code>workspace.current_dir</code>, last 3 components, <code>~</code> for home</span></div>
+      <div class="req-item"><span class="req-icon">🤖</span><span>Model — <code>model.display_name</code>, live — updates the moment you run <code>/model</code></span></div>
+      <div class="req-item"><span class="req-icon">⚡</span><span>Effort — <code>$CLAUDE_EFFORT</code> env var (the only field not in stdin)</span></div>
+      <div class="req-item"><span class="req-icon">🌿</span><span>Git branch — <code>git -C "$cwd"</code>, no <code>cd</code>, handles spaces in paths</span></div>
+      <div class="req-item"><span class="req-icon">📊</span><span>Context bar — <code>context_window.used_percentage</code>, 10-char <code>█░</code> bar</span></div>
+    </div>
+
+    <!-- Steps -->
+    <div class="section-divider"><span>Step by step</span></div>
+    <div class="steps">
+
+      <!-- Step 1 -->
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Create the statusline script</div>
+          <p class="step-desc">Create <code>~/.claude/statusline.sh</code> and paste in the script below.</p>
+          <div class="code-block"><span class="cm">#!/bin/bash</span>
+<span class="cm"># Claude Code pipes live session JSON via stdin on every refresh</span>
+<span class="cv">json</span>=$(cat)
+
+<span class="cm"># Parse all three fields at once</span>
+<span class="cv">parsed</span>=$(echo <span class="cs">"$json"</span> | python3 -c <span class="cs">"
+import json, sys, os
+d = json.load(sys.stdin)
+cwd   = d.get('workspace', {}).get('current_dir', os.getcwd())
+model = d.get('model', {}).get('display_name', 'unknown')
+pct   = int(d.get('context_window', {}).get('used_percentage', 0))
+print(cwd); print(model); print(pct)
+"</span>)
+
+<span class="cv">cwd</span>=$(echo <span class="cs">"$parsed"</span> | sed -n <span class="cs">'1p'</span>)
+<span class="cv">model_name</span>=$(echo <span class="cs">"$parsed"</span> | sed -n <span class="cs">'2p'</span>)
+<span class="cv">pct</span>=$(echo <span class="cs">"$parsed"</span> | sed -n <span class="cs">'3p'</span>)
+
+<span class="cm"># Folder: last 3 path components, ~ for home</span>
+<span class="cv">folder</span>=$(echo <span class="cs">"$cwd"</span> | awk -F'/' <span class="cs">'{n=NF; print (n>=3 ? $(n-2)"/"$(n-1)"/"$n : $0)}'</span> \
+  | sed <span class="cs">"s|$HOME|~|"</span>)
+
+<span class="cm"># Effort: the one field not in stdin</span>
+<span class="cv">effort</span>=${CLAUDE_EFFORT:-?}
+
+<span class="cm"># Git branch: -C avoids cd, handles spaces in paths</span>
+<span class="cv">branch</span>=$(git -C <span class="cs">"$cwd"</span> rev-parse --abbrev-ref HEAD 2>/dev/null)
+[ -z <span class="cs">"$branch"</span> ] &amp;&amp; <span class="cv">branch</span>=<span class="cs">"no-git"</span>
+
+<span class="cm"># Context bar: filled █ + empty ░</span>
+<span class="cv">bar</span>=$(python3 -c <span class="cs">"f=round($pct/10); print('█'*f+'░'*(10-f))"</span>)
+
+echo <span class="cs">"📁 $folder  🤖 $model_name  ⚡ $effort  🌿 $branch  📊 $bar ${pct}%"</span></div>
+          <p class="step-desc">Then make it executable:</p>
+          <div class="code-block">chmod +x ~/.claude/statusline.sh</div>
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Register it in settings.json</div>
+          <p class="step-desc">Open <code>~/.claude/settings.json</code> and add the <code>"statusLine"</code> block inside the top-level object.</p>
+          <div class="code-block"><span class="ck">"statusLine"</span>: {
+  <span class="ck">"type"</span>:            <span class="cs">"command"</span>,
+  <span class="ck">"command"</span>:         <span class="cs">"bash ~/.claude/statusline.sh"</span>,
+  <span class="ck">"padding"</span>:         2,
+  <span class="ck">"refreshInterval"</span>: 5
+}</div>
+        </div>
+      </div>
+
+      <!-- Step 3 -->
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">All fields update live — nothing to maintain</div>
+          <p class="step-desc">Every 5 seconds Claude Code re-runs the script and pipes a fresh JSON payload. Switch models with <code>/model</code>, change folders, fill up the context window — the statusline reflects it all automatically within 5 seconds.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Done banner -->
+    <div class="done-banner">
+      <div class="done-icon">✓</div>
+      <div class="done-text">
+        <p>You're all set</p>
+        <p>Restart Claude Code after editing <code>settings.json</code> — the statusline appears at the bottom of the terminal.</p>
+      </div>
+    </div>
+
+    <!-- Back to hub -->
+    <div class="back-footer">
+      <a href="index.html">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path d="M10 6H2M5 3L2 6l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Back to Kie Claude Hub
+      </a>
+    </div>
+
+  </div>
+</body>
+</html>
