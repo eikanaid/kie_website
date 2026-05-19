@@ -526,15 +526,16 @@
     <div class="statusline-preview">
       <div class="sl-label">Result — live statusline output</div>
       <div class="sl-line">
-        <span>📁 Diana&nbsp;Proj/Kie</span>
+        <span>📊 6% <span class="sl-bar">░░░░░░░░░░</span></span>
         <span class="sl-sep">·</span>
         <span>🤖 Opus&nbsp;4.7</span>
         <span class="sl-sep">·</span>
-        <span>⚡ normal</span>
+        <span>⚡ xhigh</span>
         <span class="sl-sep">·</span>
         <span>🌿 main</span>
-        <span class="sl-sep">·</span>
-        <span>📊 <span class="sl-bar">████░░░░░░</span> 40%</span>
+      </div>
+      <div class="sl-line">
+        <span>📁 ~/Documents/Diana&nbsp;Proj/Kie</span>
       </div>
     </div>
 
@@ -578,37 +579,61 @@
           <p class="step-desc">Create <code>~/.claude/statusline.sh</code> and paste in the script below.</p>
           <div class="code-block"><span class="cm">#!/bin/bash</span>
 <span class="cm"># Claude Code pipes live session JSON via stdin on every refresh</span>
-<span class="cv">json</span>=$(cat)
+<span class="cv">input</span>=$(cat)
 
-<span class="cm"># Parse all three fields at once</span>
-<span class="cv">parsed</span>=$(echo <span class="cs">"$json"</span> | python3 -c <span class="cs">"
+<span class="cm"># Parse fields. `or {}` guards against null values (not just missing keys),</span>
+<span class="cm"># try/except keeps the line alive if JSON ever arrives malformed.</span>
+<span class="cv">parsed</span>=$(echo <span class="cs">"$input"</span> | python3 -c <span class="cs">"
 import json, sys, os
-d = json.load(sys.stdin)
-cwd   = d.get('workspace', {}).get('current_dir', os.getcwd())
-model = d.get('model', {}).get('display_name', 'unknown')
-pct   = int(d.get('context_window', {}).get('used_percentage', 0))
-print(cwd); print(model); print(pct)
-"</span>)
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    d = {}
 
-<span class="cv">cwd</span>=$(echo <span class="cs">"$parsed"</span> | sed -n <span class="cs">'1p'</span>)
-<span class="cv">model_name</span>=$(echo <span class="cs">"$parsed"</span> | sed -n <span class="cs">'2p'</span>)
-<span class="cv">pct</span>=$(echo <span class="cs">"$parsed"</span> | sed -n <span class="cs">'3p'</span>)
+workspace = d.get('workspace') or {}
+cwd = workspace.get('current_dir') or os.getcwd()
+home = os.path.expanduser('~')
+if cwd.startswith(home):
+    cwd = '~' + cwd[len(home):]
 
-<span class="cm"># Folder: last 3 path components, ~ for home</span>
-<span class="cv">folder</span>=$(echo <span class="cs">"$cwd"</span> | awk -F'/' <span class="cs">'{n=NF; print (n>=3 ? $(n-2)"/"$(n-1)"/"$n : $0)}'</span> \
-  | sed <span class="cs">"s|$HOME|~|"</span>)
+model_d = d.get('model') or {}
+model = model_d.get('display_name') or 'unknown'
+
+ctx = d.get('context_window') or {}
+try:
+    pct = float(ctx.get('used_percentage') or 0)
+except (TypeError, ValueError):
+    pct = 0.0
+pct_int = int(pct)
+n = max(0, min(10, pct_int // 10))
+bar = '█'*n + '░'*(10-n)
+print(f'{cwd}|{model}|{bar}|{pct_int}')
+"</span> 2&gt;/dev/null)
+
+<span class="cm"># Bash-level fallback if Python ever fails entirely</span>
+<span class="cm"># — guarantees the status line never goes blank.</span>
+if [ -z <span class="cs">"$parsed"</span> ]; then
+    <span class="cv">parsed</span>=<span class="cs">"?|?|░░░░░░░░░░|?"</span>
+fi
+
+<span class="cv">folder</span>=$(echo <span class="cs">"$parsed"</span> | cut -d<span class="cs">'|'</span> -f1)
+<span class="cv">model</span>=$(echo <span class="cs">"$parsed"</span> | cut -d<span class="cs">'|'</span> -f2)
+<span class="cv">bar</span>=$(echo <span class="cs">"$parsed"</span> | cut -d<span class="cs">'|'</span> -f3)
+<span class="cv">pct</span>=$(echo <span class="cs">"$parsed"</span> | cut -d<span class="cs">'|'</span> -f4)
+
+<span class="cm"># Git branch: -C avoids cd, handles spaces in paths</span>
+<span class="cv">cwd_full</span>=$(echo <span class="cs">"$input"</span> | python3 -c <span class="cs">"import json,sys
+try: print((json.load(sys.stdin).get('workspace') or {}).get('current_dir') or '.')
+except: print('.')"</span> 2&gt;/dev/null)
+<span class="cv">branch</span>=$(git -C <span class="cs">"$cwd_full"</span> rev-parse --abbrev-ref HEAD 2&gt;/dev/null)
+[ -z <span class="cs">"$branch"</span> ] &amp;&amp; <span class="cv">branch</span>=<span class="cs">"no-git"</span>
 
 <span class="cm"># Effort: the one field not in stdin</span>
 <span class="cv">effort</span>=${CLAUDE_EFFORT:-?}
 
-<span class="cm"># Git branch: -C avoids cd, handles spaces in paths</span>
-<span class="cv">branch</span>=$(git -C <span class="cs">"$cwd"</span> rev-parse --abbrev-ref HEAD 2>/dev/null)
-[ -z <span class="cs">"$branch"</span> ] &amp;&amp; <span class="cv">branch</span>=<span class="cs">"no-git"</span>
-
-<span class="cm"># Context bar: filled █ + empty ░</span>
-<span class="cv">bar</span>=$(python3 -c <span class="cs">"f=round($pct/10); print('█'*f+'░'*(10-f))"</span>)
-
-echo <span class="cs">"📁 $folder  🤖 $model_name  ⚡ $effort  🌿 $branch  📊 $bar ${pct}%"</span></div>
+<span class="cm"># Two lines: % first (never gets truncated), full path on line 2</span>
+printf <span class="cs">"📊 %s%% %s  🤖 %s  ⚡ %s  🌿 %s\n📁 %s"</span> \
+  <span class="cs">"$pct"</span> <span class="cs">"$bar"</span> <span class="cs">"$model"</span> <span class="cs">"$effort"</span> <span class="cs">"$branch"</span> <span class="cs">"$folder"</span></div>
           <p class="step-desc">Then make it executable:</p>
           <div class="code-block">chmod +x ~/.claude/statusline.sh</div>
         </div>
